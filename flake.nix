@@ -16,6 +16,9 @@
           cargoLock = {
             lockFile = ./Cargo.lock;
           };
+
+          nativeBuildInputs = [ pkgs.pkgs.dotnetCorePackages.dotnet_8.sdk ];
+
         };
       in
       {

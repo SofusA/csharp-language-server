@@ -17,13 +17,16 @@ use roslyn_language_server::{
 struct Args {
     #[arg(short, long)]
     server_path: Option<String>,
+
+    #[arg(short, long)]
+    build_path: Option<String>,
 }
 
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
 
-    let pipe = start_roslyn(args.server_path).await;
+    let pipe = start_roslyn(args.server_path, args.build_path).await;
 
     let (reader, mut writer) = tokio::io::split(pipe);
 

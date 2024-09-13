@@ -4,8 +4,12 @@ use std::process::{Command, Stdio};
 
 #[test]
 fn first_line_is_jsonrpc() {
+    let dir = tempdir::TempDir::new("test-build").unwrap().into_path();
+
     let mut cmd = Command::cargo_bin("roslyn-language-server")
         .unwrap()
+        .arg("--build-path")
+        .arg(dir)
         .stdout(Stdio::piped())
         .spawn()
         .expect("Failed to start process");

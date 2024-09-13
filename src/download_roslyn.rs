@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::{env::temp_dir, io::Write, path::PathBuf};
 
-pub fn ensure_roslyn_is_installed() -> Result<PathBuf> {
+pub fn ensure_roslyn_is_installed(build_path: Option<String>) -> Result<PathBuf> {
     let mut version_dir = home::home_dir().expect("Unable to find home directory");
     version_dir.push(".roslyn");
     version_dir.push("server");
@@ -15,14 +15,25 @@ pub fn ensure_roslyn_is_installed() -> Result<PathBuf> {
         return Ok(dll_path);
     }
 
-    let mut temp_dir = temp_dir();
-    temp_dir.push("roslyn");
-    fs_extra::dir::create(&temp_dir, true)?;
+    let mut build_dir = match build_path {
+        Some(provided_build_path) => {
+            let mut parsed_build_path = PathBuf::new();
+            parsed_build_path.push(provided_build_path);
+            parsed_build_path
+        }
+        None => {
+            let mut temp_dir = temp_dir();
+            temp_dir.push("roslyn");
+            temp_dir
+        }
+    };
 
-    let mut nuget_config_file = std::fs::File::create(temp_dir.join("NuGet.config"))?;
+    fs_extra::dir::create(&build_dir, true)?;
+
+    let mut nuget_config_file = std::fs::File::create(build_dir.join("NuGet.config"))?;
     nuget_config_file.write_all(NUGET.as_bytes())?;
 
-    let mut csproj_file = std::fs::File::create(temp_dir.join("ServerDownload.csproj")).unwrap();
+    let mut csproj_file = std::fs::File::create(build_dir.join("ServerDownload.csproj")).unwrap();
     csproj_file.write_all(CSPROJ.as_bytes())?;
 
     std::process::Command::new("dotnet")
@@ -31,22 +42,22 @@ pub fn ensure_roslyn_is_installed() -> Result<PathBuf> {
         .arg("Microsoft.CodeAnalysis.LanguageServer.neutral")
         .arg("-v")
         .arg(VERSION)
-        .current_dir(&temp_dir)
+        .current_dir(&build_dir)
         .output()?;
 
-    temp_dir.push("out");
-    temp_dir.push("microsoft.codeanalysis.languageserver.neutral");
-    temp_dir.push(VERSION);
-    temp_dir.push("content");
-    temp_dir.push("LanguageServer");
-    temp_dir.push("neutral");
+    build_dir.push("out");
+    build_dir.push("microsoft.codeanalysis.languageserver.neutral");
+    build_dir.push(VERSION);
+    build_dir.push("content");
+    build_dir.push("LanguageServer");
+    build_dir.push("neutral");
 
     let copy_options = fs_extra::dir::CopyOptions::default()
         .overwrite(true)
         .content_only(true);
 
-    fs_extra::dir::move_dir(&temp_dir, &version_dir, &copy_options)?;
-    fs_extra::dir::remove(temp_dir)?;
+    fs_extra::dir::move_dir(&build_dir, &version_dir, &copy_options)?;
+    fs_extra::dir::remove(build_dir)?;
 
     Ok(dll_path)
 }

@@ -19,3 +19,4 @@ zip = "2.2.0"
 
 [dev-dependencies]
 assert_cmd = "2.0"
+tempdir = "0.3.7"
