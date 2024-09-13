@@ -1,7 +1,13 @@
 use anyhow::Result;
-use std::{env::temp_dir, io::Write, path::PathBuf};
+use std::{
+    env::temp_dir,
+    fs,
+    io::Write,
+    path::{Path, PathBuf},
+};
+use tokio::process::Command;
 
-pub fn ensure_roslyn_is_installed() -> Result<PathBuf> {
+pub async fn ensure_roslyn_is_installed() -> Result<PathBuf> {
     let mut version_dir = home::home_dir().expect("Unable to find home directory");
     version_dir.push(".roslyn");
     version_dir.push("server");
@@ -19,20 +25,17 @@ pub fn ensure_roslyn_is_installed() -> Result<PathBuf> {
     temp_dir.push("roslyn");
     fs_extra::dir::create(&temp_dir, true)?;
 
-    let mut nuget_config_file = std::fs::File::create(temp_dir.join("NuGet.config"))?;
-    nuget_config_file.write_all(NUGET.as_bytes())?;
+    create_csharp_project(&temp_dir)?;
 
-    let mut csproj_file = std::fs::File::create(temp_dir.join("ServerDownload.csproj")).unwrap();
-    csproj_file.write_all(CSPROJ.as_bytes())?;
-
-    std::process::Command::new("dotnet")
+    Command::new("dotnet")
         .arg("add")
         .arg("package")
         .arg("Microsoft.CodeAnalysis.LanguageServer.neutral")
         .arg("-v")
         .arg(VERSION)
-        .current_dir(&temp_dir)
-        .output()?;
+        .current_dir(fs::canonicalize(temp_dir.clone())?)
+        .output()
+        .await?;
 
     temp_dir.push("out");
     temp_dir.push("microsoft.codeanalysis.languageserver.neutral");
@@ -51,7 +54,17 @@ pub fn ensure_roslyn_is_installed() -> Result<PathBuf> {
     Ok(dll_path)
 }
 
-pub const VERSION: &str = "4.12.0-3.24461.2";
+pub const VERSION: &str = "4.12.0-3.24463.5";
+
+fn create_csharp_project(temp_dir: &Path) -> Result<()> {
+    let mut nuget_config_file = std::fs::File::create(temp_dir.join("NuGet.config"))?;
+    nuget_config_file.write_all(NUGET.as_bytes())?;
+
+    let mut csproj_file = std::fs::File::create(temp_dir.join("ServerDownload.csproj")).unwrap();
+    csproj_file.write_all(CSPROJ.as_bytes())?;
+
+    Ok(())
+}
 
 const NUGET: &str = "<?xml version=\"1.0\" encoding=\"utf-8\"?>
 <configuration>

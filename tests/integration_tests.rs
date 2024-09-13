@@ -2,7 +2,6 @@ use assert_cmd::cargo::CommandCargoExt;
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 
-#[cfg(not(target_os = "windows"))]
 #[test]
 fn first_line_is_jsonrpc() {
     let mut cmd = Command::cargo_bin("roslyn-language-server")

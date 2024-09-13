@@ -48,7 +48,9 @@ pub async fn start_roslyn(server_path: Option<String>) -> Box<dyn PipeStream> {
             .spawn()
             .expect("Failed to execute command");
     } else {
-        let roslyn_dll = ensure_roslyn_is_installed().expect("Unable to install Roslyn");
+        let roslyn_dll = ensure_roslyn_is_installed()
+            .await
+            .expect("Unable to install Roslyn");
 
         process = Command::new("dotnet")
             .arg(roslyn_dll)
