@@ -25,6 +25,8 @@ pub fn ensure_roslyn_is_installed() -> Result<PathBuf> {
     let mut csproj_file = std::fs::File::create(temp_dir.join("ServerDownload.csproj")).unwrap();
     csproj_file.write_all(CSPROJ.as_bytes())?;
 
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
     std::process::Command::new("dotnet")
         .arg("add")
         .arg("package")
