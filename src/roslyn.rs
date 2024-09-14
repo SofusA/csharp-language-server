@@ -32,39 +32,25 @@ async fn parse_roslyn_response(reader: BufReader<ChildStdout>) -> Result<RoslynR
     }
 }
 
-pub async fn start_roslyn(
-    server_path: Option<String>,
-    version: &str,
-    remove_old_server_versions: bool,
-) -> Box<dyn PipeStream> {
+pub async fn start_roslyn(version: &str, remove_old_server_versions: bool) -> Box<dyn PipeStream> {
     let mut log_dir = home_dir().expect("Unable to find home directory");
     log_dir.push(".roslyn");
     log_dir.push("logs");
 
     let mut process: Child;
 
-    if let Some(server_path) = server_path {
-        process = Command::new(server_path)
-            .arg("--logLevel=Information")
-            .arg("--extensionLogDirectory")
-            .arg(log_dir)
-            .stdout(Stdio::piped())
-            .spawn()
-            .expect("Failed to execute command");
-    } else {
-        let roslyn_dll = ensure_roslyn_is_installed(version, remove_old_server_versions)
-            .await
-            .expect("Unable to install Roslyn");
+    let roslyn_dll = ensure_roslyn_is_installed(version, remove_old_server_versions)
+        .await
+        .expect("Unable to install Roslyn");
 
-        process = Command::new("dotnet")
-            .arg(roslyn_dll)
-            .arg("--logLevel=Information")
-            .arg("--extensionLogDirectory")
-            .arg(log_dir)
-            .stdout(Stdio::piped())
-            .spawn()
-            .expect("Failed to execute command");
-    }
+    process = Command::new("dotnet")
+        .arg(roslyn_dll)
+        .arg("--logLevel=Information")
+        .arg("--extensionLogDirectory")
+        .arg(log_dir)
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("Failed to execute command");
 
     let reader = BufReader::new(process.stdout.take().expect("Failed to capture stdout"));
 
