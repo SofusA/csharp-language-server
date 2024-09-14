@@ -32,7 +32,11 @@ async fn parse_roslyn_response(reader: BufReader<ChildStdout>) -> Result<RoslynR
     }
 }
 
-pub async fn start_roslyn(server_path: Option<String>, version: String) -> Box<dyn PipeStream> {
+pub async fn start_roslyn(
+    server_path: Option<String>,
+    version: String,
+    remove_old_server_versions: bool,
+) -> Box<dyn PipeStream> {
     let mut log_dir = home_dir().expect("Unable to find home directory");
     log_dir.push(".roslyn");
     log_dir.push("logs");
@@ -48,7 +52,7 @@ pub async fn start_roslyn(server_path: Option<String>, version: String) -> Box<d
             .spawn()
             .expect("Failed to execute command");
     } else {
-        let roslyn_dll = ensure_roslyn_is_installed(version)
+        let roslyn_dll = ensure_roslyn_is_installed(version, remove_old_server_versions)
             .await
             .expect("Unable to install Roslyn");
 

@@ -7,12 +7,17 @@ use std::{
 };
 use tokio::process::Command;
 
-pub async fn ensure_roslyn_is_installed(version: String) -> Result<PathBuf> {
+pub async fn ensure_roslyn_is_installed(
+    version: String,
+    remove_old_server_versions: bool,
+) -> Result<PathBuf> {
     let mut version_dir = home::home_dir().expect("Unable to find home directory");
     version_dir.push(".roslyn");
     version_dir.push("server");
+    fs_extra::dir::create_all(&version_dir, remove_old_server_versions)?;
+
     version_dir.push(&version);
-    fs_extra::dir::create_all(&version_dir, false)?;
+    fs_extra::dir::create_all(&version_dir, true)?;
 
     let mut dll_path = version_dir.clone();
     dll_path.push("Microsoft.CodeAnalysis.LanguageServer.dll");

@@ -17,8 +17,14 @@ use roslyn_language_server::{
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
+    /// Provide path for Microsoft.CodeAnalysis.LanguageServer.
+    /// Otherwise this will be downloaded to ~/.roslyn
     #[arg(short, long)]
     server_path: Option<String>,
+
+    /// Remove old versions of Microsoft.CodeAnalysis.LanguageServer
+    #[arg(short, long, default_value_t = true)]
+    remove_old_server_versions: bool,
 }
 
 #[tokio::main]
@@ -26,7 +32,7 @@ async fn main() {
     let args = Args::parse();
     let version = read_version_file().expect("Unable to read server version");
 
-    let pipe = start_roslyn(args.server_path, version).await;
+    let pipe = start_roslyn(args.server_path, version, args.remove_old_server_versions).await;
 
     let (reader, mut writer) = tokio::io::split(pipe);
 
