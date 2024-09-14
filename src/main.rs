@@ -1,3 +1,5 @@
+use std::fs;
+
 use ::futures::future::try_join;
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -22,8 +24,9 @@ struct Args {
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
+    let version = read_version_file().expect("Unable to read server version");
 
-    let pipe = start_roslyn(args.server_path).await;
+    let pipe = start_roslyn(args.server_path, version).await;
 
     let (reader, mut writer) = tokio::io::split(pipe);
 
@@ -193,4 +196,8 @@ fn force_pull_diagnostics_hack(notification: &str) -> Result<String, std::io::Er
     parsed_notification["result"]["capabilities"]["diagnosticProvider"] = diagnostic_provider;
 
     Ok(add_content_length_header(&parsed_notification.to_string()))
+}
+
+fn read_version_file() -> Result<String> {
+    Ok(fs::read_to_string("server-version.txt")?.trim().to_string())
 }

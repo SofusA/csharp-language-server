@@ -7,11 +7,11 @@ use std::{
 };
 use tokio::process::Command;
 
-pub async fn ensure_roslyn_is_installed() -> Result<PathBuf> {
+pub async fn ensure_roslyn_is_installed(version: String) -> Result<PathBuf> {
     let mut version_dir = home::home_dir().expect("Unable to find home directory");
     version_dir.push(".roslyn");
     version_dir.push("server");
-    version_dir.push(VERSION);
+    version_dir.push(&version);
     fs_extra::dir::create_all(&version_dir, false)?;
 
     let mut dll_path = version_dir.clone();
@@ -32,14 +32,14 @@ pub async fn ensure_roslyn_is_installed() -> Result<PathBuf> {
         .arg("package")
         .arg("Microsoft.CodeAnalysis.LanguageServer.neutral")
         .arg("-v")
-        .arg(VERSION)
+        .arg(&version)
         .current_dir(fs::canonicalize(temp_dir.clone())?)
         .output()
         .await?;
 
     temp_dir.push("out");
     temp_dir.push("microsoft.codeanalysis.languageserver.neutral");
-    temp_dir.push(VERSION);
+    temp_dir.push(version);
     temp_dir.push("content");
     temp_dir.push("LanguageServer");
     temp_dir.push("neutral");
@@ -53,8 +53,6 @@ pub async fn ensure_roslyn_is_installed() -> Result<PathBuf> {
 
     Ok(dll_path)
 }
-
-pub const VERSION: &str = "4.12.0-3.24463.5";
 
 fn create_csharp_project(temp_dir: &Path) -> Result<()> {
     let mut nuget_config_file = std::fs::File::create(temp_dir.join("NuGet.config"))?;

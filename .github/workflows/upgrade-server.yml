@@ -1,0 +1,40 @@
+name: Upgrade Server
+
+on:
+  schedule:
+    - cron: '0 10 * * 0' 
+  workflow_dispatch: 
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Run upgrade script
+      id: upgrade
+      run: |
+        new_version=$(./upgrade-server)
+        echo "new_version=$new_version" >> $GITHUB_ENV
+
+    - name: Configure Git
+      run: |
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+    - name: Commit changes
+      run: |
+        git add .
+        git commit -m "Automated server upgrade"
+
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v7
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: Automated server upgrade
+        branch: upgrade-server-branch
+        title: "Automated Server Upgrade"
+        body: "Upgrade the server to ${{ env.new_version }}"
+
