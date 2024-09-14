@@ -34,7 +34,7 @@ async fn parse_roslyn_response(reader: BufReader<ChildStdout>) -> Result<RoslynR
 
 pub async fn start_roslyn(
     server_path: Option<String>,
-    version: String,
+    version: &str,
     remove_old_server_versions: bool,
 ) -> Box<dyn PipeStream> {
     let mut log_dir = home_dir().expect("Unable to find home directory");
