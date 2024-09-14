@@ -32,7 +32,7 @@ jobs:
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v7
       with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ secrets.REPO_SCOPED_TOKEN }}
         commit-message: Automated server upgrade
         branch: upgrade-server-branch
         title: "Automated Server Upgrade"
