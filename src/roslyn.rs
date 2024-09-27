@@ -1,7 +1,7 @@
 use std::process::Stdio;
 
 use anyhow::{bail, Context, Result};
-use home::home_dir;
+use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
@@ -33,13 +33,16 @@ async fn parse_roslyn_response(reader: BufReader<ChildStdout>) -> Result<RoslynR
 }
 
 pub async fn start_roslyn(version: &str, remove_old_server_versions: bool) -> Box<dyn PipeStream> {
-    let mut log_dir = home_dir().expect("Unable to find home directory");
-    log_dir.push(".roslyn");
-    log_dir.push("logs");
+    let cache_dir = ProjectDirs::from("com", "github", "roslyn-language-server")
+        .expect("Unable to find cache directory")
+        .cache_dir()
+        .to_path_buf();
+
+    let log_dir = cache_dir.join("log");
 
     let mut process: Child;
 
-    let roslyn_dll = ensure_roslyn_is_installed(version, remove_old_server_versions)
+    let roslyn_dll = ensure_roslyn_is_installed(version, remove_old_server_versions, &cache_dir)
         .await
         .expect("Unable to install Roslyn");
 
