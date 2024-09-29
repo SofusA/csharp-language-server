@@ -134,9 +134,11 @@ fn parse_root_path(notification: &str) -> Result<String> {
 
     let parsed_notification: Value = serde_json::from_str(&notification[json_start..])?;
 
-    let root_path = parsed_notification["params"]["rootPath"]
+    let root_path = (parsed_notification["params"]["rootUri"]
         .as_str()
-        .context("Root path")?;
+        .map(uri_to_path))
+    .or_else(|| parsed_notification["params"]["rootPath"].as_str())
+    .context("Root URI/path was not given by the client")?;
 
     Ok(root_path.to_string())
 }
@@ -163,6 +165,11 @@ fn create_open_solution_notification(file_path: &str) -> String {
 
 fn path_to_uri(file_path: &str) -> String {
     format!("file://{file_path}")
+}
+
+fn uri_to_path(uri: &str) -> &str {
+    uri.strip_prefix("file://")
+        .expect("URI should start with \"file://\"")
 }
 
 fn create_open_projects_notification(file_paths: Vec<String>) -> String {
