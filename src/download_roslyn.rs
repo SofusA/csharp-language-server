@@ -10,7 +10,7 @@ use tokio::process::Command;
 pub async fn ensure_roslyn_is_installed(
     version: &str,
     remove_old_server_versions: bool,
-    cache_dir: &PathBuf,
+    cache_dir: &Path,
 ) -> Result<PathBuf> {
     let roslyn_server_dir = cache_dir.join("server");
 
