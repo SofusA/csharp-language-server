@@ -21,7 +21,7 @@ Alternatively, install with `cargo`: `cargo install --git https://github.com/Sof
 
 ## Usage
 
-### Use with Helix
+### Helix
 Since `Microsoft.CodeAnalysis.LanguageServer` only supports `pull diagnostics` and Helix does not (yet), you would need to use my branch at `github:sofusa/helix-pull-diagnostics`.
 
 ```toml
@@ -32,3 +32,20 @@ command = "roslyn-language-server"
 name = "c-sharp"
 language-servers = ["roslyn"]
 ```
+
+### Neovim
+```lua
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'cs',
+  callback = function(args)
+    local root_dir = vim.fs.dirname(
+      vim.fs.find({ '.sln', '.csproj', '.git' }, { upward = true })[1]
+    )
+    vim.lsp.start({
+      name = 'roslyn-language-server',
+      cmd = {'roslyn-language-server'},
+      root_dir = root_dir,
+    })
+  end,
+})
+``` 

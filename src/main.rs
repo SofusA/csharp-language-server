@@ -71,7 +71,7 @@ async fn main() {
     let stdin_to_stream = async {
         let mut stdin = BufReader::new(stdin);
         loop {
-            let mut buffer = vec![0; 3048];
+            let mut buffer = vec![0; 6000];
             let bytes_read = stdin
                 .read(&mut buffer)
                 .await
