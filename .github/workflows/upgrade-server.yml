@@ -21,8 +21,8 @@ jobs:
 
     - name: Configure Git
       run: |
-        git config --global user.name 'github-actions[bot]'
-        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        git config --global user.name 'SofusA'
+        git config --global user.email '${{ secrets.SOFUSAEMAIL}}'
 
     - name: Commit changes
       run: |
