@@ -1,1 +1,1 @@
-pub const SERVER_VERSION: &str = "4.13.0-2.24574.5";
+pub const SERVER_VERSION: &str = "4.13.0-3.24580.2";
