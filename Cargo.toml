@@ -6,7 +6,7 @@ authors = ["Sofus Addington"]
 description = "A tool that simplifies installation and running C# language server"
 
 [dependencies]
-anyhow = "1.0.93"
+anyhow = "1.0.95"
 clap = { version = "4.5", features = ["derive"] }
 directories = "5.0.1"
 fs_extra = "1.3.0"
