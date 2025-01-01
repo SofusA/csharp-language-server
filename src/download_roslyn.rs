@@ -82,7 +82,7 @@ const NUGET: &str = "<?xml version=\"1.0\" encoding=\"utf-8\"?>
 const CSPROJ: &str = "<Project Sdk=\"Microsoft.NET.Sdk\">
     <PropertyGroup>
         <RestorePackagesPath>out</RestorePackagesPath>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFramework>net9.0</TargetFramework>
         <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
         <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
     </PropertyGroup>
