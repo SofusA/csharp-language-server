@@ -3,15 +3,14 @@ A wrapper around the language server behind the C# Visual Studio Code extension,
 This is more stable and faster than OmniSharp.
 
 This tool works around the quirks of `Microsoft.CodeAnalysis.LanguageServer` in the following way: 
-- Installs `Microsoft.CodeAnalysis.LanguageServer` in `~/.roslyn`
+- Downloads `Microsoft.CodeAnalysis.LanguageServer`
 - Launches `Microsoft.CodeAnalysis.LanguageServer` as a process
 - Passes the provided `unix socket` or named pipe and forwards all communication to `stdio` 
-- Waits for `capabilities` notification from the server, and forces `pull diagnostics` to be available. This forces the server respect clients who do not support dynamic registration of diagnostic capabilities.
 - Waits for an `initialize` notification from the client, and finds relevant `.sln` or `.csproj` files and sends them to the server as a custom `open` notification.
 
 ## Installation
 ### Binaries
-Download the binaries that matches your platform under Releases
+Download the binaries that match your platform under Releases
 
 ### Nix
 If you use `nix`, you can use this repository's `nix flake`. 
@@ -22,7 +21,7 @@ Alternatively, install with `cargo`: `cargo install --git https://github.com/Sof
 ## Usage
 
 ### Helix
-Since `Microsoft.CodeAnalysis.LanguageServer` only supports `pull diagnostics` and Helix does not (yet), you would need to use my branch at `github:sofusa/helix-pull-diagnostics`.
+Since `Microsoft.CodeAnalysis.LanguageServer` only supports `pull diagnostics` and Helix does not [yet](https://github.com/helix-editor/helix/pull/11315), you will need to use my branch: `github:sofusa/helix-pull-diagnostics`.
 
 ```toml
 [language-server.roslyn]
