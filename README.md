@@ -1,8 +1,8 @@
 # roslyn-language-server
-A wrapper around the language server behind the C# Visual Studio Code extension, `Microsoft.CodeAnalysis.LanguageServer`, which makes it compatible with other editors, e.g., Helix.
-This is more stable and faster than OmniSharp.
+A wrapper around the language server behind the C# Visual Studio Code extension, `Microsoft.CodeAnalysis.LanguageServer`, which makes it compatible with other editors, e.g., Helix or Neovim.
+This language server is more stable and faster than OmniSharp.
 
-This tool works around the quirks of `Microsoft.CodeAnalysis.LanguageServer` in the following way: 
+This tool assists the use of Microsoft.CodeAnalysis.LanguageServer:
 - Downloads `Microsoft.CodeAnalysis.LanguageServer`
 - Launches `Microsoft.CodeAnalysis.LanguageServer` as a process
 - Passes the provided `unix socket` or named pipe and forwards all communication to `stdio` 
