@@ -7,58 +7,35 @@ on:
       - main
 
 jobs:
-  download-server:
-    name: Download server
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
-
-      - name: Download language server
-        run: ./download-server
-
-      - name: Upload language server artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: language-server
-          path: language-server.zip
-
   build:
-    name: Build
-    needs: download-server
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+    - name: Checkout code
+      uses: actions/checkout@v2
 
-      - name: Download language server artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: language-server
+    - uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
 
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
 
-      - name: Check format
-        run: cargo fmt --check
+    - name: Check format
+      run: cargo fmt --check
 
-      - name: Clippy
-        run: cargo clippy
+    - name: Clippy
+      run: cargo clippy
 
-      - name: Build
-        run: cargo build
+    - name: Build
+      run: cargo build
 
-      - name: Run tests
-        run: cargo test
+    - name: Run tests
+      run: cargo test

@@ -1,10 +1,11 @@
 use anyhow::Result;
 use std::{
-    fs::File,
-    io::Cursor,
+    env::temp_dir,
+    fs,
+    io::Write,
     path::{Path, PathBuf},
 };
-use zip::ZipArchive;
+use tokio::process::Command;
 
 pub async fn ensure_roslyn_is_installed(
     version: &str,
@@ -12,10 +13,11 @@ pub async fn ensure_roslyn_is_installed(
     cache_dir: &Path,
 ) -> Result<PathBuf> {
     let roslyn_server_dir = cache_dir.join("server");
+
     let dll_version_dir = roslyn_server_dir.join(version);
+
     let dll_path = dll_version_dir.join("Microsoft.CodeAnalysis.LanguageServer.dll");
 
-    // return if language server is already extracted
     if std::path::Path::new(&dll_path).exists() {
         return Ok(dll_path);
     }
@@ -23,28 +25,66 @@ pub async fn ensure_roslyn_is_installed(
     fs_extra::dir::create_all(&roslyn_server_dir, remove_old_server_versions)?;
     fs_extra::dir::create_all(&dll_version_dir, true)?;
 
-    let language_server_zip = include_bytes!("../language-server.zip");
+    let temp_build_root = temp_dir().join("roslyn");
+    fs_extra::dir::create(&temp_build_root, true)?;
 
-    // extract language server
-    let reader = Cursor::new(language_server_zip);
-    let mut archive = ZipArchive::new(reader)?;
+    create_csharp_project(&temp_build_root)?;
 
-    for i in 0..archive.len() {
-        let mut file = archive.by_index(i)?;
-        let outpath = dll_version_dir.join(file.name());
+    Command::new("dotnet")
+        .arg("add")
+        .arg("package")
+        .arg("Microsoft.CodeAnalysis.LanguageServer.neutral")
+        .arg("-v")
+        .arg(version)
+        .current_dir(fs::canonicalize(temp_build_root.clone())?)
+        .output()
+        .await?;
 
-        if file.name().ends_with('/') {
-            std::fs::create_dir_all(&outpath)?;
-        } else {
-            if let Some(p) = outpath.parent() {
-                if !p.exists() {
-                    std::fs::create_dir_all(p)?;
-                }
-            }
-            let mut outfile = File::create(&outpath)?;
-            std::io::copy(&mut file, &mut outfile)?;
-        }
-    }
+    let temp_build_dir = temp_build_root
+        .join("out")
+        .join("microsoft.codeanalysis.languageserver.neutral")
+        .join(version)
+        .join("content")
+        .join("LanguageServer")
+        .join("neutral");
+
+    let copy_options = fs_extra::dir::CopyOptions::default()
+        .overwrite(true)
+        .content_only(true);
+
+    fs_extra::dir::move_dir(&temp_build_dir, &dll_version_dir, &copy_options)?;
+    fs_extra::dir::remove(temp_build_dir)?;
 
     Ok(dll_path)
 }
+
+fn create_csharp_project(temp_dir: &Path) -> Result<()> {
+    let mut nuget_config_file = std::fs::File::create(temp_dir.join("NuGet.config"))?;
+    nuget_config_file.write_all(NUGET.as_bytes())?;
+
+    let mut csproj_file = std::fs::File::create(temp_dir.join("ServerDownload.csproj")).unwrap();
+    csproj_file.write_all(CSPROJ.as_bytes())?;
+
+    Ok(())
+}
+
+const NUGET: &str = "<?xml version=\"1.0\" encoding=\"utf-8\"?>
+<configuration>
+  <packageSources>
+    <clear />
+
+    <add key=\"vs-impl\" value=\"https://pkgs.dev.azure.com/azure-public/vside/_packaging/vs-impl/nuget/v3/index.json\" />
+
+  </packageSources>
+</configuration>
+    ";
+
+const CSPROJ: &str = "<Project Sdk=\"Microsoft.NET.Sdk\">
+    <PropertyGroup>
+        <RestorePackagesPath>out</RestorePackagesPath>
+        <TargetFramework>net9.0</TargetFramework>
+        <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
+        <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
+    </PropertyGroup>
+</Project>
+";
