@@ -1,5 +1,5 @@
 {
-  description = "A flake for roslyn-language-server";
+  description = "A flake for csharp-language-server";
 
   inputs.flake-utils.url = "github:numtide/flake-utils";
 
@@ -7,13 +7,13 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        roslyn-language-server = pkgs.rustPlatform.buildRustPackage {
+        csharp-language-server = pkgs.rustPlatform.buildRustPackage {
           checkFlags = [
             # Test is unable to persist files while testing in nix
             "--skip=first_line_is_jsonrpc"
           ];
 
-          pname = "roslyn-language-server";
+          pname = "csharp-language-server";
           version = "0.5.1";
 
           src = ./.;
@@ -28,10 +28,10 @@
       in
       {
         devShell = pkgs.mkShell {
-          buildInputs = [ roslyn-language-server ];
+          buildInputs = [ csharp-language-server ];
         };
 
-        packages.roslyn-language-server = roslyn-language-server;
+        packages.csharp-language-server = csharp-language-server;
       }
     );
 }

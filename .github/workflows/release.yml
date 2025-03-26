@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
-          bin: roslyn-language-server
+          bin: csharp-language-server
           target: ${{ matrix.target }}
           zip: all
           token: ${{ secrets.GITHUB_TOKEN }}

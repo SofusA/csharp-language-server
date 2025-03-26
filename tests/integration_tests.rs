@@ -5,7 +5,7 @@ use std::process::{Command, Stdio};
 #[test]
 fn first_line_is_jsonrpc() {
     #[allow(clippy::zombie_processes)]
-    let mut cmd = Command::cargo_bin("roslyn-language-server")
+    let mut cmd = Command::cargo_bin("csharp-language-server")
         .unwrap()
         .stdout(Stdio::piped())
         .spawn()

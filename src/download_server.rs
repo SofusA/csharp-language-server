@@ -7,14 +7,14 @@ use std::{
 };
 use tokio::process::Command;
 
-pub async fn ensure_roslyn_is_installed(
+pub async fn ensure_server_is_installed(
     version: &str,
     remove_old_server_versions: bool,
     cache_dir: &Path,
 ) -> Result<PathBuf> {
-    let roslyn_server_dir = cache_dir.join("server");
+    let server_dir = cache_dir.join("server");
 
-    let dll_version_dir = roslyn_server_dir.join(version);
+    let dll_version_dir = server_dir.join(version);
 
     let dll_path = dll_version_dir.join("Microsoft.CodeAnalysis.LanguageServer.dll");
 
@@ -22,10 +22,10 @@ pub async fn ensure_roslyn_is_installed(
         return Ok(dll_path);
     }
 
-    fs_extra::dir::create_all(&roslyn_server_dir, remove_old_server_versions)?;
+    fs_extra::dir::create_all(&server_dir, remove_old_server_versions)?;
     fs_extra::dir::create_all(&dll_version_dir, true)?;
 
-    let temp_build_root = temp_dir().join("roslyn");
+    let temp_build_root = temp_dir().join("csharp-langauge-server");
     fs_extra::dir::create(&temp_build_root, true)?;
 
     create_csharp_project(&temp_build_root)?;

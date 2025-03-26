@@ -1,5 +1,5 @@
-pub mod download_roslyn;
+pub mod download_server;
 pub mod notification;
 pub mod pipe_stream;
-pub mod roslyn;
+pub mod server;
 pub mod server_version;

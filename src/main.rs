@@ -5,11 +5,11 @@ use rust_search::SearchBuilder;
 use serde_json::{json, Value};
 use tokio::io::{self, AsyncReadExt, AsyncWriteExt, BufReader};
 
-use roslyn_language_server::{
+use csharp_language_server::{
     notification::{
         add_content_length_header, Notification, Params, ProjectParams, SolutionParams,
     },
-    roslyn::start_roslyn,
+    server::start_server,
     server_version::SERVER_VERSION,
 };
 
@@ -26,7 +26,7 @@ async fn main() {
     let args = Args::parse();
     let version = SERVER_VERSION;
 
-    let pipe = start_roslyn(version, args.remove_old_server_versions).await;
+    let pipe = start_server(version, args.remove_old_server_versions).await;
 
     let (reader, mut writer) = tokio::io::split(pipe);
 

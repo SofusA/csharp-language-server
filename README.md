@@ -1,4 +1,4 @@
-# roslyn-language-server
+# csharp-language-server
 A wrapper around the language server behind the C# Visual Studio Code extension, `Microsoft.CodeAnalysis.LanguageServer`, which makes it compatible with other editors, e.g., Helix or Neovim.
 This language server is more stable and faster than OmniSharp.
 
@@ -17,7 +17,7 @@ Download the binaries that match your platform under Releases
 If you use `nix`, you can use this repository's `nix flake`. 
 
 ### Others
-Alternatively, install with `cargo`: `cargo install --git https://github.com/SofusA/roslyn-language-server` 
+Alternatively, install with `cargo`: `cargo install --git https://github.com/SofusA/csharp-language-server` 
 
 ## Usage
 
@@ -25,12 +25,12 @@ Alternatively, install with `cargo`: `cargo install --git https://github.com/Sof
 Since `Microsoft.CodeAnalysis.LanguageServer` only supports `pull diagnostics` and Helix does not [yet](https://github.com/helix-editor/helix/pull/11315), you will need to use my branch: `github:sofusa/helix-pull-diagnostics`.
 
 ```toml
-[language-server.roslyn]
-command = "roslyn-language-server"
+[language-server.csharp]
+command = "csharp-language-server"
 
 [[language]]
 name = "c-sharp"
-language-servers = ["roslyn"]
+language-servers = ["csharp"]
 ```
 
 ### Neovim
@@ -42,8 +42,8 @@ vim.api.nvim_create_autocmd('FileType', {
       vim.fs.find({ '.sln', '.csproj', '.git' }, { upward = true })[1]
     )
     vim.lsp.start({
-      name = 'roslyn-language-server',
-      cmd = {'roslyn-language-server'},
+      name = 'csharp-language-server',
+      cmd = {'csharp-language-server'},
       root_dir = root_dir,
     })
   end,
