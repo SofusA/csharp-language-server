@@ -26,15 +26,14 @@ async fn main() {
     let args = Args::parse();
     let version = SERVER_VERSION;
 
-    let pipe = start_server(version, args.remove_old_server_versions).await;
-
-    let (reader, mut writer) = tokio::io::split(pipe);
+    let (mut server_stdin, server_stdout) =
+        start_server(version, args.remove_old_server_versions).await;
 
     let stdin = io::stdin();
     let mut stdout = io::stdout();
 
     let stream_to_stdout = async {
-        let mut reader = BufReader::new(reader);
+        let mut reader = BufReader::new(server_stdout);
         loop {
             let mut buffer = vec![0; 3048];
             let bytes_read = reader
@@ -81,7 +80,7 @@ async fn main() {
                 break; // EOF reached
             }
 
-            writer
+            server_stdin
                 .write_all(&buffer[..bytes_read])
                 .await
                 .expect("Unable to forward client notification to server");
@@ -100,7 +99,7 @@ async fn main() {
                     let open_solution_notification =
                         create_open_solution_notification(&solution_to_open);
 
-                    writer
+                    server_stdin
                         .write_all(open_solution_notification.as_bytes())
                         .await
                         .expect("Unable to send open solution notification to server");
@@ -111,7 +110,7 @@ async fn main() {
                 let project_files = find_extension(&root_path, "csproj");
                 let open_projects_notification = create_open_projects_notification(project_files);
 
-                writer
+                server_stdin
                     .write_all(open_projects_notification.as_bytes())
                     .await
                     .expect("Unable to send open projects notification to server");
@@ -119,7 +118,7 @@ async fn main() {
                 break;
             }
         }
-        io::copy(&mut stdin, &mut writer).await
+        io::copy(&mut stdin, &mut server_stdin).await
     };
 
     try_join(stdin_to_stream, stream_to_stdout)
