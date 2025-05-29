@@ -19,6 +19,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Download language server
+        run: ./download-server
+
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: csharp-language-server

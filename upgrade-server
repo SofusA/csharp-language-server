@@ -4,4 +4,4 @@ version=$(dotnet package search Microsoft.CodeAnalysis.LanguageServer.neutral --
 
 echo "pub const SERVER_VERSION: &str = \"$version\";" > ./src/server_version.rs
 
-echo $version
+echo $version > ./download-server-project/version.txt
