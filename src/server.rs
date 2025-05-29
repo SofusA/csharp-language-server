@@ -6,7 +6,6 @@ use crate::download_server::ensure_server_is_installed;
 
 pub async fn start_server(
     version: &str,
-    remove_old_server_versions: bool,
 ) -> (tokio::process::ChildStdin, tokio::process::ChildStdout) {
     let cache_dir = ProjectDirs::from("com", "github", "csharp-language-server")
         .expect("Unable to find cache directory")
@@ -15,7 +14,7 @@ pub async fn start_server(
 
     let log_dir = cache_dir.join("log");
 
-    let server_dll = ensure_server_is_installed(version, remove_old_server_versions, &cache_dir)
+    let server_dll = ensure_server_is_installed(version, &cache_dir)
         .await
         .expect("Unable to install server");
 

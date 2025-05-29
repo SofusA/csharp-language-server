@@ -6,11 +6,7 @@ use std::{
 };
 use zip::ZipArchive;
 
-pub async fn ensure_server_is_installed(
-    version: &str,
-    _remove_old_server_versions: bool,
-    cache_dir: &Path,
-) -> Result<PathBuf> {
+pub async fn ensure_server_is_installed(version: &str, cache_dir: &Path) -> Result<PathBuf> {
     let server_dir = cache_dir.join("server");
 
     let dll_version_dir = server_dir.join(version);
