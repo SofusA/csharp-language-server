@@ -6,9 +6,7 @@ use serde_json::{Value, json};
 use tokio::io::{self, AsyncReadExt, AsyncWriteExt, BufReader};
 
 use csharp_language_server::{
-    notification::{
-        Notification, Params, ProjectParams, SolutionParams, add_content_length_header,
-    },
+    notification::{Notification, Params, ProjectParams, add_content_length_header},
     server::start_server,
     server_version::SERVER_VERSION,
 };
@@ -86,20 +84,20 @@ async fn main() {
                 let root_path = parse_root_path(&notification)
                     .expect("Root path not part of initialize notification");
 
-                let solution_files = find_extension(&root_path, "sln");
-                let solution_to_open = solution_files.first().map(|found| found.to_owned());
+                // let solution_files = find_extension(&root_path, "sln");
+                // let solution_to_open = solution_files.first().map(|found| found.to_owned());
 
-                if let Some(solution_to_open) = solution_to_open {
-                    let open_solution_notification =
-                        create_open_solution_notification(&solution_to_open);
+                // if let Some(solution_to_open) = solution_to_open {
+                //     let open_solution_notification =
+                //         create_open_solution_notification(&solution_to_open);
 
-                    server_stdin
-                        .write_all(open_solution_notification.as_bytes())
-                        .await
-                        .expect("Unable to send open solution notification to server");
+                //     server_stdin
+                //         .write_all(open_solution_notification.as_bytes())
+                //         .await
+                //         .expect("Unable to send open solution notification to server");
 
-                    break;
-                }
+                //     break;
+                // }
 
                 let project_files = find_extension(&root_path, "csproj");
                 let open_projects_notification = create_open_projects_notification(project_files);
@@ -144,17 +142,17 @@ fn find_extension(root_path: &str, extension: &str) -> Vec<String> {
         .collect()
 }
 
-fn create_open_solution_notification(file_path: &str) -> String {
-    let notification = Notification {
-        jsonrpc: "2.0".to_string(),
-        method: "solution/open".to_string(),
-        params: Params::Solution(SolutionParams {
-            solution: path_to_uri(file_path),
-        }),
-    };
+// fn create_open_solution_notification(file_path: &str) -> String {
+//     let notification = Notification {
+//         jsonrpc: "2.0".to_string(),
+//         method: "solution/open".to_string(),
+//         params: Params::Solution(SolutionParams {
+//             solution: path_to_uri(file_path),
+//         }),
+//     };
 
-    notification.serialize()
-}
+//     notification.serialize()
+// }
 
 fn path_to_uri(file_path: &str) -> String {
     format!("file://{file_path}")
