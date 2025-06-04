@@ -12,9 +12,6 @@ This tool assists the use of Microsoft.CodeAnalysis.LanguageServer:
 ### Binaries
 Download the binaries that match your platform under Releases
 
-### Nix
-If you use `nix`, you can use this repository's `nix flake`. 
-
 ### Others
 Alternatively, install with `cargo`: `cargo install --git https://github.com/SofusA/csharp-language-server` 
 
