@@ -50,7 +50,7 @@ vim.api.nvim_create_autocmd('FileType', {
 ``` 
 
 ### Zed
-`pull diagnostics` are available from version `0.191` which is currently in pre-release. Install that and override your `omnisharp`-config:
+Override your `omnisharp`-config by setting this in `settings`:
 ```json
 "lsp": {
   "omnisharp": {
