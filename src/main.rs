@@ -1,16 +1,17 @@
 use std::{path::PathBuf, str::FromStr};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::Parser;
 use futures::future::try_join;
-use rust_search::SearchBuilder;
 use serde_json::{Value, json};
 use tokio::io::{self, AsyncReadExt, AsyncWriteExt, BufReader};
 
 use csharp_language_server::{
+    find_extension,
     notification::{
         Notification, Params, ProjectParams, SolutionParams, add_content_length_header,
     },
+    path::{Path, parse_root_path},
     server::start_server,
     server_version::SERVER_VERSION,
 };
@@ -67,8 +68,8 @@ async fn main() {
 
     let stream_to_stdout = async {
         let mut reader = BufReader::new(server_stdout);
+        let mut buffer = vec![0; 3048];
         loop {
-            let mut buffer = vec![0; 3048];
             let bytes_read = reader
                 .read(&mut buffer)
                 .await
@@ -78,32 +79,32 @@ async fn main() {
                 break; // EOF reached
             }
 
-            let notification = String::from_utf8(buffer[..bytes_read].to_vec())
-                .expect("Unable to convert buffer to string");
+            if let Ok(notification) = str::from_utf8(&buffer[..bytes_read]) {
+                if notification.contains("capabilities") {
+                    let patched_result_notification = force_pull_diagnostics_hack(notification)?;
 
-            if notification.contains("capabilities") {
-                let patched_result_notification = force_pull_diagnostics_hack(&notification)?;
+                    stdout
+                        .write_all(patched_result_notification.as_bytes())
+                        .await?;
+
+                    break;
+                }
 
                 stdout
-                    .write_all(patched_result_notification.as_bytes())
-                    .await?;
-
-                break;
+                    .write_all(&buffer[..bytes_read])
+                    .await
+                    .expect("Unable to forward client notification to server");
+                buffer.clear();
             }
-
-            stdout
-                .write_all(&buffer[..bytes_read])
-                .await
-                .expect("Unable to forward client notification to server");
         }
-
+        drop(buffer);
         io::copy(&mut reader, &mut stdout).await
     };
 
     let stdin_to_stream = async {
         let mut stdin = BufReader::new(stdin);
+        let mut buffer = vec![0; 6000];
         loop {
-            let mut buffer = vec![0; 6000];
             let bytes_read = stdin
                 .read(&mut buffer)
                 .await
@@ -118,36 +119,25 @@ async fn main() {
                 .await
                 .expect("Unable to forward client notification to server");
 
-            let notification = String::from_utf8(buffer[..bytes_read].to_vec())
-                .expect("Unable to convert buffer to string");
-
-            if notification.contains("initialize") {
-                let root_path = parse_root_path(&notification)
-                    .expect("Root path not part of initialize notification");
-
-                let open_solution_notification =
-                    open_solution_notification(&root_path, args.solution_path);
-
-                if let Some(open_solution_notification) = open_solution_notification {
+            if let Ok(notification) = str::from_utf8(&buffer[..bytes_read]) {
+                if notification.contains("initialize") {
                     server_stdin
-                        .write_all(open_solution_notification.as_bytes())
+                        .write_all(
+                            create_open_notification(
+                                notification,
+                                &args.solution_path,
+                                &args.project_paths,
+                            )
+                            .as_bytes(),
+                        )
                         .await
-                        .expect("Unable to send open solution notification to server");
-
+                        .expect("Unable to send open projects notification to server");
                     break;
                 }
-
-                let open_projects_notification =
-                    open_projects_notification(&root_path, args.project_paths);
-
-                server_stdin
-                    .write_all(open_projects_notification.as_bytes())
-                    .await
-                    .expect("Unable to send open projects notification to server");
-
-                break;
             }
+            buffer.clear();
         }
+        drop(buffer);
         io::copy(&mut stdin, &mut server_stdin).await
     };
 
@@ -156,36 +146,32 @@ async fn main() {
         .expect("Will never finish");
 }
 
-fn parse_root_path(notification: &str) -> Result<String> {
-    let json_start = notification
-        .find('{')
-        .context("Notification was not json")?;
+fn create_open_notification(
+    init_notification: &str,
+    solution_override: &Option<String>,
+    projects_override: &Option<Vec<String>>,
+) -> String {
+    let mut root_path =
+        parse_root_path(init_notification).expect("Root path not part of initialize notification");
 
-    let parsed_notification: Value = serde_json::from_str(&notification[json_start..])?;
+    let open_solution_notification = open_solution_notification(&mut root_path, solution_override);
 
-    let root_path = parsed_notification["params"]["rootUri"]
-        .as_str()
-        .map(uri_to_path)
-        .or_else(|| parsed_notification["params"]["rootPath"].as_str())
-        .context("Root URI/path was not given by the client")?;
+    if let Some(open_solution_notification) = open_solution_notification {
+        return open_solution_notification;
+    }
 
-    Ok(root_path.to_string())
+    open_projects_notification(&root_path, projects_override)
 }
 
-fn find_extension(root_path: &str, extension: &str) -> Vec<String> {
-    SearchBuilder::default()
-        .location(root_path)
-        .ext(extension)
-        .build()
-        .collect()
-}
-
-fn open_solution_notification(root_path: &str, override_path: Option<String>) -> Option<String> {
-    let file_path = match override_path {
-        Some(path) => path,
+fn open_solution_notification(
+    root_path: &mut Path,
+    override_path: &Option<String>,
+) -> Option<String> {
+    let solution_path = match override_path {
+        Some(p) => root_path.join(p),
         None => {
-            let solution_files = find_extension(root_path, "sln");
-            solution_files.first()?.to_owned()
+            let mut solution_files = find_extension!(root_path.clone(), "sln", "slnx");
+            root_path.join(&solution_files.next()?)
         }
     };
 
@@ -194,28 +180,22 @@ fn open_solution_notification(root_path: &str, override_path: Option<String>) ->
             jsonrpc: "2.0".to_string(),
             method: "solution/open".to_string(),
             params: Params::Solution(SolutionParams {
-                solution: path_to_uri(&file_path),
+                solution: solution_path.to_uri_string(),
             }),
         }
         .serialize(),
     )
 }
 
-fn path_to_uri(file_path: &str) -> String {
-    format!("file://{file_path}")
-}
-
-fn uri_to_path(uri: &str) -> &str {
-    uri.strip_prefix("file://")
-        .expect("URI should start with \"file://\"")
-}
-
-fn open_projects_notification(root_path: &str, override_paths: Option<Vec<String>>) -> String {
-    let file_paths = override_paths.unwrap_or(find_extension(root_path, "csproj"));
+fn open_projects_notification(root_path: &Path, override_paths: &Option<Vec<String>>) -> String {
+    let file_paths = match override_paths {
+        Some(p) => p,
+        None => &find_extension!(root_path.clone(), "csproj").collect(),
+    };
 
     let uris: Vec<String> = file_paths
         .iter()
-        .map(|file_path| path_to_uri(file_path))
+        .map(|p| root_path.join(p).to_uri_string())
         .collect();
 
     let notification = Notification {
