@@ -7,14 +7,15 @@ use anyhow::{Context, Result};
 #[derive(Debug, Clone)]
 pub struct Path(PathBuf);
 
-#[macro_export]
-macro_rules! find_extension {
-    ($root_path:expr, $($extension:expr),+) => {
-        rust_search::SearchBuilder::default()
-            .location(Into::<PathBuf>::into($root_path))
-            $(.ext($extension))+
-            .build()
-    };
+pub fn find_extension(root_path: Path, extensions: &[&'static str]) -> Vec<String> {
+    let mut builder =
+        rust_search::SearchBuilder::default().location(Into::<PathBuf>::into(root_path));
+
+    for extension in extensions {
+        builder = builder.ext(*extension)
+    }
+
+    builder.build().collect()
 }
 
 impl Path {

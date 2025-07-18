@@ -7,11 +7,10 @@ use serde_json::{Value, json};
 use tokio::io::{self, AsyncReadExt, AsyncWriteExt, BufReader};
 
 use csharp_language_server::{
-    find_extension,
     notification::{
         Notification, Params, ProjectParams, SolutionParams, add_content_length_header,
     },
-    path::{Path, parse_root_path},
+    path::{Path, find_extension, parse_root_path},
     server::start_server,
     server_version::SERVER_VERSION,
 };
@@ -31,7 +30,7 @@ struct Args {
     #[arg(short, long)]
     directory: Option<String>,
 
-    /// Override solution (.sln) path. Absolute path
+    /// Override solution (.sln or .slnx) path. Absolute path
     #[arg(short, long)]
     solution_path: Option<String>,
 
@@ -151,10 +150,11 @@ fn create_open_notification(
     solution_override: &Option<String>,
     projects_override: &Option<Vec<String>>,
 ) -> String {
-    let mut root_path =
+    let root_path =
         parse_root_path(init_notification).expect("Root path not part of initialize notification");
 
-    let open_solution_notification = open_solution_notification(&mut root_path, solution_override);
+    let open_solution_notification = open_solution_notification(&root_path, solution_override);
+    eprintln!("{open_solution_notification:? }");
 
     if let Some(open_solution_notification) = open_solution_notification {
         return open_solution_notification;
@@ -163,16 +163,10 @@ fn create_open_notification(
     open_projects_notification(&root_path, projects_override)
 }
 
-fn open_solution_notification(
-    root_path: &mut Path,
-    override_path: &Option<String>,
-) -> Option<String> {
+fn open_solution_notification(root_path: &Path, override_path: &Option<String>) -> Option<String> {
     let solution_path = match override_path {
-        Some(p) => root_path.join(p),
-        None => {
-            let mut solution_files = find_extension!(root_path.clone(), "sln", "slnx");
-            root_path.join(&solution_files.next()?)
-        }
+        Some(p) => root_path.join(p).to_uri_string(),
+        None => find_extension(root_path.clone(), &["sln", "slnx"]).first(),
     };
 
     Some(
@@ -190,7 +184,7 @@ fn open_solution_notification(
 fn open_projects_notification(root_path: &Path, override_paths: &Option<Vec<String>>) -> String {
     let file_paths = match override_paths {
         Some(p) => p,
-        None => &find_extension!(root_path.clone(), "csproj").collect(),
+        None => &find_extension(root_path.clone(), &["csproj"]),
     };
 
     let uris: Vec<String> = file_paths
