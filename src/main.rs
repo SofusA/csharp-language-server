@@ -7,12 +7,7 @@ use serde_json::{Value, json};
 use tokio::io::{self, AsyncReadExt, AsyncWriteExt, BufReader};
 
 use csharp_language_server::{
-    extensions,
-    notification::{
-        Notification, Params, ProjectParams, SolutionParams, add_content_length_header,
-    },
-    path::{Path, find_extension, parse_root_path},
-    server::start_server,
+    notification::add_content_length_header, path::create_open_notification, server::start_server,
     server_version::SERVER_VERSION,
 };
 
@@ -68,140 +63,75 @@ async fn main() {
 
     let stream_to_stdout = async {
         let mut reader = BufReader::new(server_stdout);
-        let mut buffer = vec![0; 3048];
         loop {
+            let mut buffer = vec![0; 3048];
             let bytes_read = reader
                 .read(&mut buffer)
                 .await
                 .expect("Unable to read incoming server notification");
-
             if bytes_read == 0 {
                 break; // EOF reached
             }
 
-            if let Ok(notification) = str::from_utf8(&buffer[..bytes_read]) {
-                if notification.contains("capabilities") {
-                    let patched_result_notification = force_pull_diagnostics_hack(notification)?;
+            let notification = String::from_utf8(buffer[..bytes_read].to_vec())
+                .expect("Unable to convert buffer to string");
 
-                    stdout
-                        .write_all(patched_result_notification.as_bytes())
-                        .await?;
-
-                    break;
-                }
+            if notification.contains("capabilities") {
+                let patched_result_notification = force_pull_diagnostics_hack(&notification)?;
 
                 stdout
-                    .write_all(&buffer[..bytes_read])
-                    .await
-                    .expect("Unable to forward client notification to server");
-                buffer.clear();
+                    .write_all(patched_result_notification.as_bytes())
+                    .await?;
+
+                break;
             }
+
+            stdout
+                .write_all(&buffer[..bytes_read])
+                .await
+                .expect("Unable to forward client notification to server");
         }
-        drop(buffer);
+
         io::copy(&mut reader, &mut stdout).await
     };
 
     let stdin_to_stream = async {
         let mut stdin = BufReader::new(stdin);
-        let mut buffer = vec![0; 6000];
         loop {
+            let mut buffer = vec![0; 6000];
             let bytes_read = stdin
                 .read(&mut buffer)
                 .await
                 .expect("Unable to read incoming client notification");
-
             if bytes_read == 0 {
                 break; // EOF reached
             }
-
             server_stdin
                 .write_all(&buffer[..bytes_read])
                 .await
                 .expect("Unable to forward client notification to server");
 
-            if let Ok(notification) = str::from_utf8(&buffer[..bytes_read]) {
-                if notification.contains("initialize") {
-                    server_stdin
-                        .write_all(
-                            create_open_notification(
-                                notification,
-                                &args.solution_path,
-                                args.project_paths,
-                            )
-                            .as_bytes(),
-                        )
-                        .await
-                        .expect("Unable to send open projects notification to server");
-                    break;
-                }
+            let notification = String::from_utf8(buffer[..bytes_read].to_vec())
+                .expect("Unable to convert buffer to string");
+
+            if notification.contains("initialize") {
+                let open_solution_notification =
+                    create_open_notification(&notification, args.solution_path, args.project_paths);
+
+                server_stdin
+                    .write_all(open_solution_notification.as_bytes())
+                    .await
+                    .expect("Unable to send open solution notification to server");
+
+                break;
             }
-            buffer.clear();
         }
-        drop(buffer);
         io::copy(&mut stdin, &mut server_stdin).await
     };
 
     try_join(stdin_to_stream, stream_to_stdout)
         .await
         .expect("Will never finish");
-}
-
-fn create_open_notification(
-    init_notification: &str,
-    solution_override: &Option<String>,
-    projects_override: Option<Vec<String>>,
-) -> String {
-    let mut root_path =
-        parse_root_path(init_notification).expect("Root path not part of initialize notification");
-
-    let open_solution_notification = open_solution_notification(&mut root_path, solution_override);
-
-    if let Some(open_solution_notification) = open_solution_notification {
-        return open_solution_notification;
-    }
-
-    open_projects_notification(root_path, projects_override)
-}
-
-fn open_solution_notification(
-    root_path: &mut Path,
-    override_path: &Option<String>,
-) -> Option<String> {
-    let solution_path = match override_path {
-        Some(p) => root_path.join(p),
-
-        None => find_extension(root_path.clone(), &extensions!["sln", "slnx"]).next()?,
-    };
-
-    Some(
-        Notification {
-            jsonrpc: "2.0".to_string(),
-            method: "solution/open".to_string(),
-            params: Params::Solution(SolutionParams {
-                solution: solution_path.to_uri_string(),
-            }),
-        }
-        .serialize(),
-    )
-}
-
-fn open_projects_notification(root_path: Path, override_paths: Option<Vec<String>>) -> String {
-    let file_paths = match override_paths {
-        Some(p) => p,
-        None => find_extension(root_path, &extensions!["csproj"])
-            .map(|p| p.to_uri_string())
-            .collect(),
-    };
-
-    let notification = Notification {
-        jsonrpc: "2.0".to_string(),
-        method: "project/open".to_string(),
-        params: Params::Project(ProjectParams {
-            projects: file_paths,
-        }),
-    };
-
-    notification.serialize()
 }
 
 fn force_pull_diagnostics_hack(notification: &str) -> Result<String, std::io::Error> {
