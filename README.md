@@ -5,8 +5,7 @@ This language server is more stable and faster than OmniSharp.
 This tool assists the use of Microsoft.CodeAnalysis.LanguageServer:
 - Downloads `Microsoft.CodeAnalysis.LanguageServer`
 - Launches `Microsoft.CodeAnalysis.LanguageServer` as a process
-- Waits for `capabilities` notification from the server, and forces `pull diagnostics` to be available. This forces the server respect clients who do not support dynamic registration of diagnostic capabilities.
-- Waits for an `initialize` notification from the client, and finds relevant `.sln` or `.csproj` files and sends them to the server as a custom `open` notification.
+- Waits for an `initialize` notification from the client, and finds relevant `.sln`, `.slnx` or `.csproj` files and sends them to the server as a custom `open` notification.
 
 ## Installation
 ### Binaries

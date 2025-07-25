@@ -31,7 +31,7 @@ impl Notification {
     }
 }
 
-pub fn add_content_length_header(body: &str) -> String {
+fn add_content_length_header(body: &str) -> String {
     let header = format!("Content-Length: {}\r\n\r\n", body.len());
     let full_message = format!("{header}{body}");
 
