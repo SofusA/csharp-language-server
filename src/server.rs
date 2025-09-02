@@ -73,23 +73,34 @@ async fn ensure_server_is_installed(
         Err(_) => bail!("Unable to get dotnet sdk version. Is dotnet installed?"),
     };
 
-    let dotnet_sdk_version = match dotnet_sdk_output
+    // Collect all dotnet SDK versions in a descending order
+    let dotnet_sdk_versions = dotnet_sdk_output
         .lines()
         .filter_map(|line| line.split('.').next())
-        .next_back()
-    {
-        Some(version) => version,
-        None => bail!("Unable to get dotnet sdk version. No sdk installations found"),
-    };
+        .rev()
+        .collect::<Vec<_>>();
 
-    let dotnet_sdk_version_string = match dotnet_sdk_version {
-        "5" => "net5.0",
-        "6" => "net6.0",
-        "7" => "net7.0",
-        "8" => "net8.0",
-        "9" => "net9.0",
-        _ => bail!("Unsupported dotnet sdk: {}", dotnet_sdk_version),
-    };
+    if dotnet_sdk_versions.is_empty() {
+        bail!("Unable to get dotnet sdk version. No sdk installations found");
+    }
+
+    // Try to get the latest supported dotnet SDK version
+    let dotnet_sdk_version_string = dotnet_sdk_versions
+        .iter()
+        .find_map(|&version| match version {
+            "5" => Some("net5.0"),
+            "6" => Some("net6.0"),
+            "7" => Some("net7.0"),
+            "8" => Some("net8.0"),
+            "9" => Some("net9.0"),
+            _ => None,
+        })
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "No supported dotnet sdk versions found, installed: {}",
+                dotnet_sdk_versions.join(", ")
+            )
+        })?;
 
     fs_extra::dir::create_all(server_dir, remove_old_server_versions)?;
     fs_extra::dir::create_all(&dll_version_dir, true)?;
