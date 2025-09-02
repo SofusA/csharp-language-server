@@ -74,8 +74,8 @@ async fn ensure_server_is_installed(
     };
 
     let dotnet_sdk_version = match dotnet_sdk_output
-        .split('\n')
-        .filter_map(|line| line.chars().next())
+        .lines()
+        .filter_map(|line| line.split('.').next())
         .next_back()
     {
         Some(version) => version,
@@ -83,11 +83,11 @@ async fn ensure_server_is_installed(
     };
 
     let dotnet_sdk_version_string = match dotnet_sdk_version {
-        '5' => "net5.0",
-        '6' => "net6.0",
-        '7' => "net7.0",
-        '8' => "net8.0",
-        '9' => "net9.0",
+        "5" => "net5.0",
+        "6" => "net6.0",
+        "7" => "net7.0",
+        "8" => "net8.0",
+        "9" => "net9.0",
         _ => bail!("Unsupported dotnet sdk: {}", dotnet_sdk_version),
     };
 
