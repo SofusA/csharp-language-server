@@ -88,6 +88,7 @@ async fn ensure_server_is_installed(
         "7" => "net7.0",
         "8" => "net8.0",
         "9" => "net9.0",
+        "10" => "net10.0",
         _ => bail!("Unsupported dotnet sdk: {}", dotnet_sdk_version),
     };
 
