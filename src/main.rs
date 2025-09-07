@@ -5,7 +5,9 @@ use futures::future::try_join;
 use tokio::io::{self, AsyncReadExt, AsyncWriteExt, BufReader};
 
 use csharp_language_server::{
-    path::create_open_notification, server::start_server, server_version::SERVER_VERSION,
+    path::create_open_notification,
+    server::{download_server, start_server},
+    server_version::SERVER_VERSION,
 };
 
 #[derive(Parser, Debug)]
@@ -45,12 +47,7 @@ async fn main() {
     if args.download {
         println!("Downloading language server");
 
-        csharp_language_server::server::download_server(
-            version,
-            args.remove_old_server_versions,
-            directory_path,
-        )
-        .await;
+        download_server(version, args.remove_old_server_versions, directory_path).await;
 
         println!("Done!");
         return;
