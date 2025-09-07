@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::Result;
 use directories::ProjectDirs;
 use std::process::Stdio;
 use std::{
@@ -17,12 +17,20 @@ pub async fn start_server(
     let dir = override_directory.unwrap_or(cache_dir());
     let log_dir = cache_dir().join("log");
 
-    let server_dll = ensure_server_is_installed(version, remove_old_server_versions, &dir)
+    let server = ensure_server_is_installed(version, remove_old_server_versions, &dir)
         .await
         .expect("Unable to install server");
 
-    let command = Command::new("dotnet")
-        .arg(server_dll)
+    let mut command = match server {
+        ServerPath::Exe(path) => Command::new(path),
+        ServerPath::Dll(path) => {
+            let mut cmd = Command::new("dotnet");
+            cmd.arg(path);
+            cmd
+        }
+    };
+
+    let command = command
         .arg("--logLevel=Information")
         .arg("--extensionLogDirectory")
         .arg(log_dir)
@@ -56,108 +64,136 @@ fn cache_dir() -> PathBuf {
     cache_dir.join("server")
 }
 
+enum ServerPath {
+    Exe(PathBuf),
+    Dll(PathBuf),
+}
+
 async fn ensure_server_is_installed(
     version: &str,
     remove_old_server_versions: bool,
-    server_dir: &Path,
-) -> Result<PathBuf> {
-    let dll_version_dir = server_dir.join(version);
-    let dll_path = dll_version_dir.join("Microsoft.CodeAnalysis.LanguageServer.dll");
+    server_root_dir: &Path,
+) -> Result<ServerPath> {
+    let server_dir = server_root_dir.join(version);
 
-    if std::path::Path::new(&dll_path).exists() {
-        return Ok(dll_path);
+    let rid = CURRENT_RID;
+    if std::path::Path::new(&server_dir.join(rid)).exists() {
+        return get_server_path(&server_dir, rid);
     }
 
-    let dotnet_sdk_output = match Command::new("dotnet").arg("--list-sdks").output().await {
-        Ok(output) => String::from_utf8(output.stdout)?,
-        Err(_) => bail!("Unable to get dotnet sdk version. Is dotnet installed?"),
-    };
-
-    let dotnet_sdk_version = match dotnet_sdk_output
-        .lines()
-        .filter_map(|line| line.split('.').next())
-        .next_back()
-    {
-        Some(version) => version,
-        None => bail!("Unable to get dotnet sdk version. No sdk installations found"),
-    };
-
-    let dotnet_sdk_version_string = match dotnet_sdk_version {
-        "5" => "net5.0",
-        "6" => "net6.0",
-        "7" => "net7.0",
-        "8" => "net8.0",
-        "9" => "net9.0",
-        "10" => "net10.0",
-        _ => bail!("Unsupported dotnet sdk: {}", dotnet_sdk_version),
-    };
-
-    fs_extra::dir::create_all(server_dir, remove_old_server_versions)?;
-    fs_extra::dir::create_all(&dll_version_dir, true)?;
+    fs_extra::dir::create_all(server_root_dir, remove_old_server_versions)?;
+    fs_extra::dir::create_all(&server_dir, true)?;
 
     let temp_build_root = temp_dir().join("csharp-language-server");
     fs_extra::dir::create(&temp_build_root, true)?;
 
-    create_csharp_project(&temp_build_root, dotnet_sdk_version_string)?;
+    create_csharp_project(&temp_build_root)?;
 
-    Command::new("dotnet")
-        .arg("add")
-        .arg("package")
-        .arg("Microsoft.CodeAnalysis.LanguageServer.neutral")
-        .arg("-v")
-        .arg(version)
+    let res = Command::new("dotnet")
+        .arg("restore")
+        .arg(format!(
+            "-p:LanguageServerPackage=Microsoft.CodeAnalysis.LanguageServer.{rid}"
+        ))
+        .arg(format!("-p:LanguageServerVersion={version}"))
         .current_dir(fs::canonicalize(temp_build_root.clone())?)
         .output()
         .await?;
 
+    anyhow::ensure!(
+        res.status.success(),
+        "dotnet restore failed with exit code: {:?}\nstdout: {}\nstderr: {}",
+        res.status.code(),
+        String::from_utf8_lossy(&res.stdout),
+        String::from_utf8_lossy(&res.stderr)
+    );
+
     let temp_build_dir = temp_build_root
         .join("out")
-        .join("microsoft.codeanalysis.languageserver.neutral")
+        .join(format!("microsoft.codeanalysis.languageserver.{rid}"))
         .join(version)
         .join("content")
-        .join("LanguageServer")
-        .join("neutral");
+        .join("LanguageServer");
 
     let copy_options = fs_extra::dir::CopyOptions::default()
         .overwrite(true)
         .content_only(true);
 
-    fs_extra::dir::move_dir(&temp_build_dir, &dll_version_dir, &copy_options)?;
+    fs_extra::dir::move_dir(&temp_build_dir, &server_dir, &copy_options)?;
     fs_extra::dir::remove(temp_build_dir)?;
 
-    Ok(dll_path)
+    get_server_path(&server_dir, rid)
 }
 
-fn create_csharp_project(temp_dir: &Path, dotnet_sdk_version_string: &str) -> Result<()> {
-    let mut nuget_config_file = std::fs::File::create(temp_dir.join("NuGet.config"))?;
-    nuget_config_file.write_all(NUGET.as_bytes())?;
-
-    let mut csproj_file = std::fs::File::create(temp_dir.join("ServerDownload.csproj")).unwrap();
-    csproj_file.write_all(csproj_string(dotnet_sdk_version_string).as_bytes())?;
-
+fn create_csharp_project(temp_build_root: &Path) -> Result<()> {
+    let mut csproj_file = std::fs::File::create(temp_build_root.join("ServerDownload.csproj"))?;
+    csproj_file.write_all(CSPROJ.as_bytes())?;
     Ok(())
 }
 
-const NUGET: &str = "<?xml version=\"1.0\" encoding=\"utf-8\"?>
-<configuration>
-  <packageSources>
-    <clear />
-
-    <add key=\"vs-impl\" value=\"https://pkgs.dev.azure.com/azure-public/vside/_packaging/vs-impl/nuget/v3/index.json\" />
-
-  </packageSources>
-</configuration>
-    ";
-
-fn csproj_string(dotnet_sdk_version_string: &str) -> String {
-    format!(
-        "<Project Sdk=\"Microsoft.NET.Sdk\">
-            <PropertyGroup>
-                <RestorePackagesPath>out</RestorePackagesPath>
-                <TargetFramework>{dotnet_sdk_version_string}</TargetFramework>
-                <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
-                <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
-            </PropertyGroup>
-         </Project>"
-    )
+fn get_server_path(server_dir: &Path, rid: &str) -> Result<ServerPath> {
+    let exe_dir = server_dir.join(rid);
+    if rid == "neutral" {
+        Ok(ServerPath::Dll(
+            exe_dir.join("Microsoft.CodeAnalysis.LanguageServer.dll"),
+        ))
+    } else if rid.starts_with("win-") {
+        Ok(ServerPath::Exe(
+            exe_dir.join("Microsoft.CodeAnalysis.LanguageServer.exe"),
+        ))
+    } else {
+        Ok(ServerPath::Exe(
+            exe_dir.join("Microsoft.CodeAnalysis.LanguageServer"),
+        ))
+    }
 }
+
+const CSPROJ: &str = r#"
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <RestoreSources>https://pkgs.dev.azure.com/azure-public/vside/_packaging/vs-impl/nuget/v3/index.json</RestoreSources>
+        <RestorePackagesPath>out</RestorePackagesPath>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
+        <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageDownload Include="$(LanguageServerPackage)" version="[$(LanguageServerVersion)]" />
+    </ItemGroup>
+</Project>"#;
+
+const CURRENT_RID: &str = if cfg!(all(target_os = "windows", target_arch = "x86_64")) {
+    "win-x64"
+} else if cfg!(all(target_os = "windows", target_arch = "aarch64")) {
+    "win-arm64"
+} else if cfg!(all(
+    target_os = "linux",
+    target_arch = "x86_64",
+    target_env = "musl"
+)) {
+    "linux-musl-x64"
+} else if cfg!(all(
+    target_os = "linux",
+    target_arch = "x86_64",
+    target_env = "gnu"
+)) {
+    "linux-x64"
+} else if cfg!(all(
+    target_os = "linux",
+    target_arch = "aarch64",
+    target_env = "musl"
+)) {
+    "linux-musl-arm64"
+} else if cfg!(all(
+    target_os = "linux",
+    target_arch = "aarch64",
+    target_env = "gnu"
+)) {
+    "linux-arm64"
+} else if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
+    "osx-x64"
+} else if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+    "osx-arm64"
+} else {
+    "neutral"
+};
