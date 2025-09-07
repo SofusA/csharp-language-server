@@ -25,6 +25,7 @@ pub async fn start_server(
         ServerPath::Exe(path) => Command::new(path),
         ServerPath::Dll(path) => {
             let mut cmd = Command::new("dotnet");
+            cmd.arg("exec");
             cmd.arg(path);
             cmd
         }
@@ -76,7 +77,7 @@ async fn ensure_server_is_installed(
 ) -> Result<ServerPath> {
     let server_dir = server_root_dir.join(version);
 
-    let rid = CURRENT_RID;
+    let rid = current_rid();
     if std::path::Path::new(&server_dir.join(rid)).exists() {
         return get_server_path(&server_dir, rid);
     }
@@ -132,19 +133,13 @@ fn create_csharp_project(temp_build_root: &Path) -> Result<()> {
 
 fn get_server_path(server_dir: &Path, rid: &str) -> Result<ServerPath> {
     let exe_dir = server_dir.join(rid);
-    if rid == "neutral" {
-        Ok(ServerPath::Dll(
-            exe_dir.join("Microsoft.CodeAnalysis.LanguageServer.dll"),
-        ))
+    Ok(if rid == "neutral" {
+        ServerPath::Dll(exe_dir.join("Microsoft.CodeAnalysis.LanguageServer.dll"))
     } else if rid.starts_with("win-") {
-        Ok(ServerPath::Exe(
-            exe_dir.join("Microsoft.CodeAnalysis.LanguageServer.exe"),
-        ))
+        ServerPath::Exe(exe_dir.join("Microsoft.CodeAnalysis.LanguageServer.exe"))
     } else {
-        Ok(ServerPath::Exe(
-            exe_dir.join("Microsoft.CodeAnalysis.LanguageServer"),
-        ))
-    }
+        ServerPath::Exe(exe_dir.join("Microsoft.CodeAnalysis.LanguageServer"))
+    })
 }
 
 const CSPROJ: &str = r#"
@@ -158,42 +153,35 @@ const CSPROJ: &str = r#"
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageDownload Include="$(LanguageServerPackage)" version="[$(LanguageServerVersion)]" />
+        <PackageDownload Include="$(LanguageServerPackage)" Version="[$(LanguageServerVersion)]" />
     </ItemGroup>
 </Project>"#;
 
-const CURRENT_RID: &str = if cfg!(all(target_os = "windows", target_arch = "x86_64")) {
-    "win-x64"
-} else if cfg!(all(target_os = "windows", target_arch = "aarch64")) {
-    "win-arm64"
-} else if cfg!(all(
-    target_os = "linux",
-    target_arch = "x86_64",
-    target_env = "musl"
-)) {
-    "linux-musl-x64"
-} else if cfg!(all(
-    target_os = "linux",
-    target_arch = "x86_64",
-    target_env = "gnu"
-)) {
-    "linux-x64"
-} else if cfg!(all(
-    target_os = "linux",
-    target_arch = "aarch64",
-    target_env = "musl"
-)) {
-    "linux-musl-arm64"
-} else if cfg!(all(
-    target_os = "linux",
-    target_arch = "aarch64",
-    target_env = "gnu"
-)) {
-    "linux-arm64"
-} else if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
-    "osx-x64"
-} else if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
-    "osx-arm64"
-} else {
+#[allow(unreachable_code)]
+const fn current_rid() -> &'static str {
+    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+    return "win-x64";
+
+    #[cfg(all(target_os = "windows", target_arch = "aarch64"))]
+    return "win-arm64";
+
+    #[cfg(all(target_os = "linux", target_arch = "x86_64", target_env = "musl"))]
+    return "linux-musl-x64";
+
+    #[cfg(all(target_os = "linux", target_arch = "x86_64", target_env = "gnu"))]
+    return "linux-x64";
+
+    #[cfg(all(target_os = "linux", target_arch = "aarch64", target_env = "musl"))]
+    return "linux-musl-arm64";
+
+    #[cfg(all(target_os = "linux", target_arch = "aarch64", target_env = "gnu"))]
+    return "linux-arm64";
+
+    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+    return "osx-x64";
+
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    return "osx-arm64";
+
     "neutral"
-};
+}
