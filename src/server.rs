@@ -75,15 +75,15 @@ async fn ensure_server_is_installed(
     remove_old_server_versions: bool,
     server_root_dir: &Path,
 ) -> Result<ServerPath> {
-    let server_dir = server_root_dir.join(version);
+    let server_version_dir = server_root_dir.join(version);
 
     let rid = current_rid();
-    if std::path::Path::new(&server_dir.join(rid)).exists() {
-        return get_server_path(&server_dir, rid);
+    if std::path::Path::new(&server_version_dir.join(rid)).exists() {
+        return Ok(get_server_path(&server_version_dir, rid));
     }
 
     fs_extra::dir::create_all(server_root_dir, remove_old_server_versions)?;
-    fs_extra::dir::create_all(&server_dir, true)?;
+    fs_extra::dir::create_all(&server_version_dir, true)?;
 
     let temp_build_root = temp_dir().join("csharp-language-server");
     fs_extra::dir::create(&temp_build_root, true)?;
@@ -119,10 +119,10 @@ async fn ensure_server_is_installed(
         .overwrite(true)
         .content_only(true);
 
-    fs_extra::dir::move_dir(&temp_build_dir, &server_dir, &copy_options)?;
+    fs_extra::dir::move_dir(&temp_build_dir, &server_version_dir, &copy_options)?;
     fs_extra::dir::remove(temp_build_dir)?;
 
-    get_server_path(&server_dir, rid)
+    Ok(get_server_path(&server_version_dir, rid))
 }
 
 fn create_csharp_project(temp_build_root: &Path) -> Result<()> {
@@ -131,15 +131,15 @@ fn create_csharp_project(temp_build_root: &Path) -> Result<()> {
     Ok(())
 }
 
-fn get_server_path(server_dir: &Path, rid: &str) -> Result<ServerPath> {
-    let exe_dir = server_dir.join(rid);
-    Ok(if rid == "neutral" {
-        ServerPath::Dll(exe_dir.join("Microsoft.CodeAnalysis.LanguageServer.dll"))
+fn get_server_path(server_version_dir: &Path, rid: &str) -> ServerPath {
+    let server_dir = server_version_dir.join(rid);
+    if rid == "neutral" {
+        ServerPath::Dll(server_dir.join("Microsoft.CodeAnalysis.LanguageServer.dll"))
     } else if rid.starts_with("win-") {
-        ServerPath::Exe(exe_dir.join("Microsoft.CodeAnalysis.LanguageServer.exe"))
+        ServerPath::Exe(server_dir.join("Microsoft.CodeAnalysis.LanguageServer.exe"))
     } else {
-        ServerPath::Exe(exe_dir.join("Microsoft.CodeAnalysis.LanguageServer"))
-    })
+        ServerPath::Exe(server_dir.join("Microsoft.CodeAnalysis.LanguageServer"))
+    }
 }
 
 const CSPROJ: &str = r#"
@@ -165,17 +165,17 @@ const fn current_rid() -> &'static str {
     #[cfg(all(target_os = "windows", target_arch = "aarch64"))]
     return "win-arm64";
 
-    #[cfg(all(target_os = "linux", target_arch = "x86_64", target_env = "musl"))]
-    return "linux-musl-x64";
-
     #[cfg(all(target_os = "linux", target_arch = "x86_64", target_env = "gnu"))]
     return "linux-x64";
 
-    #[cfg(all(target_os = "linux", target_arch = "aarch64", target_env = "musl"))]
-    return "linux-musl-arm64";
-
     #[cfg(all(target_os = "linux", target_arch = "aarch64", target_env = "gnu"))]
     return "linux-arm64";
+
+    #[cfg(all(target_os = "linux", target_arch = "x86_64", target_env = "musl"))]
+    return "linux-musl-x64";
+
+    #[cfg(all(target_os = "linux", target_arch = "aarch64", target_env = "musl"))]
+    return "linux-musl-arm64";
 
     #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
     return "osx-x64";
