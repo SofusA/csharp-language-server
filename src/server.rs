@@ -133,7 +133,7 @@ fn create_csharp_project(temp_build_root: &Path) -> Result<()> {
 
 fn get_server_path(server_version_dir: &Path, rid: &str) -> ServerPath {
     let server_dir = server_version_dir.join(rid);
-    if rid == "neutral" {
+    if rid == "neutral" || rid.starts_with("osx-") {
         ServerPath::Dll(server_dir.join("Microsoft.CodeAnalysis.LanguageServer.dll"))
     } else if rid.starts_with("win-") {
         ServerPath::Exe(server_dir.join("Microsoft.CodeAnalysis.LanguageServer.exe"))
