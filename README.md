@@ -20,8 +20,6 @@ The tool will download `Microsoft.CodeAnalysis.LanguageServer` at the first laun
 ## Usage
 
 ### Helix
-Since `Microsoft.CodeAnalysis.LanguageServer` only supports `pull diagnostics` and Helix does not [yet](https://github.com/helix-editor/helix/pull/11315), you will need to use my branch: `github:sofusa/helix-pull-diagnostics`.
-
 ```toml
 [language-server.csharp]
 command = "csharp-language-server"
