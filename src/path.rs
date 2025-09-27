@@ -1,7 +1,6 @@
 use serde_json::Value;
 use std::{ffi::OsStr, path::PathBuf};
 use url::Url;
-use walkdir::{DirEntry, WalkDir};
 
 use anyhow::{Context, Result};
 
@@ -90,8 +89,14 @@ impl From<&str> for Path {
     }
 }
 
-impl From<&DirEntry> for Path {
-    fn from(value: &DirEntry) -> Self {
+impl From<PathBuf> for Path {
+    fn from(path: PathBuf) -> Self {
+        Self(path)
+    }
+}
+
+impl From<&ignore::DirEntry> for Path {
+    fn from(value: &ignore::DirEntry) -> Self {
         value.path().to_str().unwrap().into()
     }
 }
@@ -118,7 +123,7 @@ fn parse_root_path(notification: &str) -> Result<Path> {
     Ok(root_path)
 }
 
-fn path_for_file_with_extension(dir: &DirEntry, ext: &Vec<&'static OsStr>) -> Option<Path> {
+fn path_for_file_with_extension(dir: &ignore::DirEntry, ext: &Vec<&'static OsStr>) -> Option<Path> {
     if dir.path().is_file() && dir.path().extension().is_some_and(|e| ext.contains(&e)) {
         return Some(dir.into());
     }
@@ -126,15 +131,23 @@ fn path_for_file_with_extension(dir: &DirEntry, ext: &Vec<&'static OsStr>) -> Op
 }
 
 fn find_extension(root_path: &Path, ext: &Vec<&'static OsStr>) -> impl Iterator<Item = Path> {
-    WalkDir::new(&root_path.0)
-        .into_iter()
-        .filter_map(|d| d.ok())
-        .filter_map(|d| path_for_file_with_extension(&d, ext))
+    let mut found_paths: Vec<(usize, Path)> = ignore::Walk::new(&root_path.0)
+        .filter_map(|res| res.ok())
+        .filter_map(|d| path_for_file_with_extension(&d, ext).map(|p| (d.depth(), p)))
+        .collect();
+
+    found_paths.sort_by(|(depth_a, path_a), (depth_b, path_b)| {
+        depth_a.cmp(depth_b).then_with(|| path_a.0.cmp(&path_b.0))
+    });
+
+    found_paths.into_iter().map(|(_, p)| p)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{ffi::OsStr, fs};
+    use tempfile::TempDir;
 
     macro_rules! from_uri_test {
     ([$target_family:literal], $($test_name:ident: ($input:expr, $expected:expr),)*) => {
@@ -164,5 +177,40 @@ mod tests {
         rooted_unix: ("file:///var/_Foo/bar/baz","/var/_Foo/bar/baz"),
         with_host_unix: ("file://localhost/_Foo/bar/baz","/_Foo/bar/baz"),
         with_parent_unix: ("file:///var/_Foo/bar/../baz","/var/_Foo/baz"),
+    }
+
+    fn touch(path: &std::path::Path) {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        fs::write(path, b"").unwrap();
+    }
+
+    #[test]
+    fn finds_files_with_ext_in_root_and_subdir() {
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+
+        // Layout:
+        // root/
+        //   b.ext          <-- match
+        //   b.txt          <-- non-match
+        //   a/
+        //     a.ext        <-- match
+        //     other        <-- non-match (no extension)
+        touch(&root.join("b.ext"));
+        touch(&root.join("b.txt"));
+        touch(&root.join("a").join("a.ext"));
+        touch(&root.join("a").join("other"));
+
+        let ext = vec![OsStr::new("ext")];
+
+        let results: Vec<Path> = find_extension(&root.to_path_buf().into(), &ext).collect();
+
+        let found: Vec<std::path::PathBuf> = results.into_iter().map(|p| p.0).collect();
+        let expected = vec![root.join("b.ext"), root.join("a").join("a.ext")];
+
+        // Assert
+        assert_eq!(found, expected);
     }
 }
