@@ -1,8 +1,10 @@
 use std::{path::PathBuf, str::FromStr};
 
 use clap::Parser;
-use futures::future::try_join;
-use tokio::io::{self, AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::{
+    io::{self, AsyncReadExt, AsyncWriteExt, BufReader},
+    try_join,
+};
 
 use csharp_language_server::{
     path::create_open_notification,
@@ -104,7 +106,5 @@ async fn main() {
         io::copy(&mut stdin, &mut server_stdin).await
     };
 
-    try_join(stdin_to_stream, stream_to_stdout)
-        .await
-        .expect("Will never finish");
+    _ = try_join!(stdin_to_stream, stream_to_stdout);
 }
