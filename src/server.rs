@@ -82,11 +82,11 @@ async fn ensure_server_is_installed(
         return Ok(get_server_path(&server_version_dir, rid));
     }
 
-    fs_extra::dir::create_all(server_root_dir, remove_old_server_versions)?;
-    fs_extra::dir::create_all(&server_version_dir, true)?;
+    create_all(server_root_dir, remove_old_server_versions)?;
+    create_all(&server_version_dir, true)?;
 
     let temp_build_root = temp_dir().join("csharp-language-server");
-    fs_extra::dir::create(&temp_build_root, true)?;
+    create(&temp_build_root, true)?;
 
     create_csharp_project(&temp_build_root)?;
 
@@ -115,12 +115,8 @@ async fn ensure_server_is_installed(
         .join("content")
         .join("LanguageServer");
 
-    let copy_options = fs_extra::dir::CopyOptions::default()
-        .overwrite(true)
-        .content_only(true);
-
-    fs_extra::dir::move_dir(&temp_build_dir, &server_version_dir, &copy_options)?;
-    fs_extra::dir::remove(temp_build_dir)?;
+    move_dir(&temp_build_dir, &server_version_dir)?;
+    remove(temp_build_root)?;
 
     Ok(get_server_path(&server_version_dir, rid))
 }
@@ -184,4 +180,53 @@ const fn current_rid() -> &'static str {
     return "osx-arm64";
 
     "neutral"
+}
+
+fn create_all<P: AsRef<Path>>(path: P, erase: bool) -> Result<()> {
+    if erase && path.as_ref().exists() {
+        remove(&path)?;
+    }
+    Ok(fs::create_dir_all(&path)?)
+}
+
+fn remove<P: AsRef<Path>>(path: P) -> Result<()> {
+    if path.as_ref().exists() {
+        Ok(fs::remove_dir_all(path)?)
+    } else {
+        Ok(())
+    }
+}
+
+fn create<P: AsRef<Path>>(path: P, erase: bool) -> Result<()> {
+    if erase && path.as_ref().exists() {
+        remove(&path)?;
+    }
+    Ok(fs::create_dir(&path)?)
+}
+
+fn move_dir(src: &Path, dst: &Path) -> std::io::Result<()> {
+    match fs::rename(src, dst) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::CrossesDevices => {
+            copy_tree(src, dst)?;
+            fs::remove_dir_all(src)
+        }
+        Err(e) => Err(e),
+    }
+}
+
+fn copy_tree(src: &Path, dst: &Path) -> std::io::Result<()> {
+    fs::create_dir_all(dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let from = entry.path();
+        let to = dst.join(entry.file_name());
+
+        if from.is_dir() {
+            copy_tree(&from, &to)?;
+        } else {
+            fs::copy(&from, &to)?;
+        }
+    }
+    Ok(())
 }
