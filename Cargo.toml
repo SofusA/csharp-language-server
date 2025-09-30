@@ -1,6 +1,6 @@
 [package]
 name = "csharp-language-server"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2024"
 authors = ["Sofus Addington"]
 description = "A tool that simplifies installation and running C# language server"
