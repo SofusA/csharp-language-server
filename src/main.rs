@@ -19,7 +19,7 @@ struct Args {
     #[arg(short, long, default_value_t = true)]
     remove_old_server_versions: bool,
 
-    /// Download Microsoft.CodeAnalysis.LanguageServer and exit
+    /// Download Microsoft.CodeAnalysis.LanguageServer. Returns path to dll (macos) or executable (win and linux)
     #[arg(long, default_value_t = false)]
     download: bool,
 
@@ -34,10 +34,6 @@ struct Args {
     /// Override project(s) (.csproj) path(s). Absolute path. Solution path takes precedence
     #[arg(short, long)]
     project_paths: Option<Vec<String>>,
-
-    /// Disable sending any "open" commands.
-    #[arg(short, long, default_value_t = false)]
-    no_open: bool,
 }
 
 #[tokio::main]
@@ -47,11 +43,8 @@ async fn main() {
     let directory_path = args.directory.map(|dir| PathBuf::from_str(&dir).unwrap());
 
     if args.download {
-        println!("Downloading language server");
-
-        download_server(version, args.remove_old_server_versions, directory_path).await;
-
-        println!("Done!");
+        let path = download_server(version, args.remove_old_server_versions, directory_path).await;
+        println!("{}", path.to_string_lossy());
         return;
     }
 
@@ -69,38 +62,33 @@ async fn main() {
 
     let stdin_to_stream = async {
         let mut stdin = BufReader::new(stdin);
-        if !args.no_open {
-            loop {
-                let mut buffer = vec![0; 6000];
-                let bytes_read = stdin
-                    .read(&mut buffer)
-                    .await
-                    .expect("Unable to read incoming client notification");
-                if bytes_read == 0 {
-                    break; // EOF reached
-                }
+        loop {
+            let mut buffer = vec![0; 6000];
+            let bytes_read = stdin
+                .read(&mut buffer)
+                .await
+                .expect("Unable to read incoming client notification");
+            if bytes_read == 0 {
+                break; // EOF reached
+            }
+            server_stdin
+                .write_all(&buffer[..bytes_read])
+                .await
+                .expect("Unable to forward client notification to server");
+
+            let notification = String::from_utf8(buffer[..bytes_read].to_vec())
+                .expect("Unable to convert buffer to string");
+
+            if notification.contains("initialize") {
+                let open_solution_notification =
+                    create_open_notification(&notification, args.solution_path, args.project_paths);
+
                 server_stdin
-                    .write_all(&buffer[..bytes_read])
+                    .write_all(open_solution_notification.as_bytes())
                     .await
-                    .expect("Unable to forward client notification to server");
+                    .expect("Unable to send open solution notification to server");
 
-                let notification = String::from_utf8(buffer[..bytes_read].to_vec())
-                    .expect("Unable to convert buffer to string");
-
-                if notification.contains("initialize") {
-                    let open_solution_notification = create_open_notification(
-                        &notification,
-                        args.solution_path,
-                        args.project_paths,
-                    );
-
-                    server_stdin
-                        .write_all(open_solution_notification.as_bytes())
-                        .await
-                        .expect("Unable to send open solution notification to server");
-
-                    break;
-                }
+                break;
             }
         }
         io::copy(&mut stdin, &mut server_stdin).await

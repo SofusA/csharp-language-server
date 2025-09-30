@@ -48,12 +48,17 @@ pub async fn download_server(
     version: &str,
     remove_old_server_versions: bool,
     override_directory: Option<PathBuf>,
-) {
+) -> PathBuf {
     let dir = override_directory.unwrap_or(cache_dir());
 
-    ensure_server_is_installed(version, remove_old_server_versions, &dir)
+    let server_path = ensure_server_is_installed(version, remove_old_server_versions, &dir)
         .await
         .expect("Unable to install server");
+
+    match server_path {
+        ServerPath::Exe(path_buf) => path_buf,
+        ServerPath::Dll(path_buf) => path_buf,
+    }
 }
 
 fn cache_dir() -> PathBuf {
