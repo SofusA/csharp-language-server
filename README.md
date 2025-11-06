@@ -47,6 +47,9 @@ vim.api.nvim_create_autocmd('FileType', {
 ``` 
 
 ### Zed
+**IMPORTANT** There is currently a known bug in Zed's implementation of pull diagnostics.
+Latest working version is v0.199.6.
+
 Override your `omnisharp`-config by setting this in `settings`:
 ```json
 "lsp": {
