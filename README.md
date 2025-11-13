@@ -11,11 +11,11 @@ This tool assists the use of Microsoft.CodeAnalysis.LanguageServer:
 `Microsoft.CodeAnalysis.LanguageServer` is not intended to function as a standalone language server; it is designed to work together with an editor extension. This project is not an extension, it is only a tool to download and run `Microsoft.CodeAnalysis.LanguageServer`.
 As a result, there are a few quirks you should be aware of. These can all be resolved through editor extension code, but not here, as doing so would break communication between the server and client.
 
-### Projects are not automatically restored
-Microsoft.CodeAnalysis.LanguageServer sends a custom LSP notification indicating that the project needs to be restored. If hover or diagnostics for external libraries do not work, this is likely the cause.
+- Projects are not automatically restored
+  - Microsoft.CodeAnalysis.LanguageServer sends a custom LSP notification indicating that the project needs to be restored. If hover or diagnostics for external libraries do not work, this is likely the cause.
 
-###Diagnostics are pulled before the project is fully loaded
-The first document opened will only show diagnostics that do not require a loaded project (e.g., missing ;). All subsequent diagnostic pulls will be correct. You may need to save the document or open another one to refresh diagnostics.
+- Diagnostics are pulled before the project is fully loaded
+  - The first document opened will only show diagnostics that do not require a loaded project (e.g., missing ;). All subsequent diagnostic pulls will be correct. You may need to save the document or open another one to refresh diagnostics.
 
 ## Installation
 ### Binaries
