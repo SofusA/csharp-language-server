@@ -7,11 +7,11 @@ on:
       - main
 
 jobs:
-  build:
+  test:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest, windows-11-arm]
 
     steps:
     - name: Checkout code
@@ -19,15 +19,7 @@ jobs:
 
     - uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '9.0.x'
-
-    - name: Set up Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        profile: minimal
-        override: true
-        components: rustfmt, clippy
+        dotnet-version: '10.0.x'
 
     - name: Check format
       run: cargo fmt --check
@@ -39,4 +31,5 @@ jobs:
       run: cargo build
 
     - name: Run tests
+      timeout-minutes: 4
       run: cargo test
