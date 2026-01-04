@@ -3,30 +3,31 @@
 
   inputs = {
     flake-utils.url = "github:numtide/flake-utils";
+    naersk.url = "github:nix-community/naersk";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    rust-overlay.url = "github:oxalica/rust-overlay";
   };
 
   outputs = {
-    nixpkgs,
     flake-utils,
+    naersk,
+    nixpkgs,
+    rust-overlay,
     ...
   }:
     let
-      overlay = _: super: {
-        csharp-language-server = super.rustPlatform.buildRustPackage {
-          checkFlags = [
-            # Test is unable to persist files while testing in nix
-            "--skip=first_line_is_jsonrpc"
-          ];
+      overlays = {
+        default = final: prev: {
+          csharp-language-server = (final.callPackage naersk { }).buildPackage {
+            pname = "csharp-language-server";
+            src = ./.;
 
-          pname = "csharp-language-server";
-          version = "0.6.0";
+            nativeBuildInputs = [ final.dotnetCorePackages.dotnet_8.sdk ];
 
-          src = ./.;
-
-          cargoLock.lockFile = ./Cargo.lock;
-
-          nativeBuildInputs = [ super.dotnetCorePackages.dotnet_8.sdk ];
+            cargoTestOptions = x: x ++ [ 
+              "--" "--skip=first_line_is_jsonrpc" 
+            ];
+          };
         };
       };
     in
@@ -34,20 +35,23 @@
       let
         pkgs = import nixpkgs {
           inherit system;
-          overlays = [ overlay ];
+          overlays = [ (import rust-overlay) overlays.default ];
         };
       in
       {
-        devShell = pkgs.mkShell {
-          buildInputs = with pkgs; [ csharp-language-server ];
+        devShells.default = pkgs.mkShell {
+          buildInputs = [ pkgs.csharp-language-server ];
         };
 
-        packages = with pkgs; {
-          default = csharp-language-server;
-          inherit csharp-language-server;
+        packages = {
+          default = pkgs.csharp-language-server;
+          
+          csharp-language-server = throw ''
+            packages.csharp-language-server has been renamed to packages.default.
+          '';
         };
       }
     ) // {
-      overlays.default = overlay;
+      inherit overlays;
     };
 }
