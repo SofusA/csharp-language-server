@@ -4,6 +4,8 @@ version = "0.7.0"
 edition = "2024"
 authors = ["Sofus Addington"]
 description = "A tool that simplifies installation and running C# language server"
+license = "MIT"
+repository = "https://github.com/sofusa/csharp-language-server"
 
 [dependencies]
 anyhow = "1"
