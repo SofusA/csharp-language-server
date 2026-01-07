@@ -30,6 +30,9 @@ The tool will download `Microsoft.CodeAnalysis.LanguageServer` at the first laun
 ## Usage
 
 ### Helix
+Helix requires the latest version from git, to support diagnostics.
+Use `sofusa/helix` fork to support multiple projects in same git repository. Until helix-editor/helix#15081 is merged.
+
 ```toml
 [language-server.csharp]
 command = "csharp-language-server"
@@ -57,16 +60,5 @@ vim.api.nvim_create_autocmd('FileType', {
 ``` 
 
 ### Zed
-**IMPORTANT** There is currently a known bug in Zed's implementation of pull diagnostics.
-Latest working version is v0.199.6.
-
-Override your `omnisharp`-config by setting this in `settings`:
-```json
-"lsp": {
-  "omnisharp": {
-    "binary": {
-      "path": "csharp-language-server"
-    }
-  }
-}
-```
+This is now the default language server for `zed 0.218` and later.
+No need to configure anything. 
