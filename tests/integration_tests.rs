@@ -307,10 +307,10 @@ fn provides_diagnostics() {
         "Using directive is unnecessary."
     );
 
-    let unused = get_diagnostic(diagnostic_response, "CS0219").unwrap();
+    let unused = get_diagnostic(diagnostic_response, "CS0029").unwrap();
     assert_eq!(
         unused.get("message").unwrap(),
-        "The variable 'warning' is assigned but its value is never used"
+        "Cannot implicitly convert type 'string' to 'int'"
     );
 
     // Cleanup

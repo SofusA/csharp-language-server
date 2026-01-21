@@ -7,7 +7,7 @@ class Program
 {
     static void Main(string[] args)
     {
-        var warning = "unused";
+        int warning = Hello.GetWorld();
         Console.WriteLine("remember semicolons!")
     }
 }
