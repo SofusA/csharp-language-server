@@ -31,7 +31,6 @@ The tool will download `Microsoft.CodeAnalysis.LanguageServer` at the first laun
 
 ### Helix
 Helix requires the latest version from git, to support diagnostics.
-Use `sofusa/helix` fork to support multiple projects in same git repository. Until helix-editor/helix#15081 is merged.
 
 ```toml
 [language-server.csharp]
