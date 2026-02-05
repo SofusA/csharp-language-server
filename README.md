@@ -1,3 +1,9 @@
+# Deprecated
+Microsoft has released official support for running the language server outside of vscode, under the name [`roslyn-language-server`](https://github.com/dotnet/roslyn/tree/main/src/LanguageServer/Microsoft.CodeAnalysis.LanguageServer). This solves all the issue that this project used to address.
+`roslyn-language-server` should be used instead, and this project is considered deprecated. 
+
+I would like to thank the roslyn language server team for providing official support.
+
 # csharp-language-server
 A wrapper around the language server behind the C# Visual Studio Code extension, `Microsoft.CodeAnalysis.LanguageServer`, which makes it compatible with other editors, e.g., Helix or Neovim.
 This language server is more stable and faster than OmniSharp.
